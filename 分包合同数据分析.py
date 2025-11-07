@@ -12,19 +12,33 @@ import tempfile
 import base64
 import io
 import plotly.io as pio
-
-# ==================== 字体配置部分 ====================
+# ==================== 改进的字体配置部分 ====================
 def setup_chinese_font():
     """设置中文字体，适用于Matplotlib和Plotly"""
     try:
-        # 尝试从GitHub下载思源黑体
-        font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
-        response = requests.get(font_url)
-        response.raise_for_status()
+        # 尝试从可靠源下载思源黑体
+        font_urls = [
+            "https://raw.githubusercontent.com/googlefonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf",
+            "https://mirrors.tuna.tsinghua.edu.cn/adobe-fonts/source-han-sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf",
+            "https://gitee.com/mirrors/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
+        ]
+        
+        font_data = None
+        for url in font_urls:
+            try:
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                font_data = response.content
+                break
+            except:
+                continue
+        
+        if font_data is None:
+            raise Exception("所有字体下载源都不可用")
         
         # 保存到临时文件
         with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as f:
-            f.write(response.content)
+            f.write(font_data)
             temp_font_path = f.name
         
         # 添加到字体管理器
@@ -40,22 +54,34 @@ def setup_chinese_font():
         
         return True
     except Exception as e:
-        st.warning(f"字体下载失败: {str(e)}，尝试使用备用字体")
+        st.warning(f"字体下载失败: {str(e)}，使用备用字体方案")
         try:
-            # 备用字体列表
-            plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'Microsoft YaHei', 'SimHei', 'FangSong', 'KaiTi']
+            # 备用方案1：使用系统可能存在的字体
+            system_fonts = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'FangSong', 'KaiTi']
+            available_fonts = [f for f in system_fonts if f in fontManager.get_font_names()]
+            
+            if available_fonts:
+                plt.rcParams['font.sans-serif'] = available_fonts
+                plt.rcParams['axes.unicode_minus'] = False
+                pio.templates["plotly_white"].layout.font.family = available_fonts[0]
+                return True
+            
+            # 备用方案2：使用内置的WenQuanYi Micro Hei
+            !apt-get install fonts-wqy-microhei -qq > /dev/null
+            plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei']
             plt.rcParams['axes.unicode_minus'] = False
-            pio.templates["plotly_white"].layout.font.family = "Arial Unicode MS"
+            pio.templates["plotly_white"].layout.font.family = "WenQuanYi Micro Hei"
             return True
+            
         except Exception as e:
-            st.error(f"字体设置失败: {str(e)}")
+            st.error(f"备用字体设置失败: {str(e)}")
             return False
-
 # 初始化字体设置
 if not setup_chinese_font():
     st.error("无法初始化中文字体，图表中文显示可能不正常")
-
-# ==================== 应用主代码 ====================
+else:
+    st.success("中文字体设置成功")
+# ==================== 应用主代码 ===================
 # 设置页面布局
 st.set_page_config(page_title="分包合同数据分析系统", layout="wide")
 st.title("分包合同数据分析系统")
