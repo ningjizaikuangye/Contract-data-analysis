@@ -12,6 +12,7 @@ import tempfile
 import base64
 import io
 import plotly.io as pio
+
 # ==================== 改进的字体配置部分 ====================
 def setup_chinese_font():
     """设置中文字体，适用于Matplotlib和Plotly"""
@@ -76,12 +77,14 @@ def setup_chinese_font():
         except Exception as e:
             st.error(f"备用字体设置失败: {str(e)}")
             return False
+
 # 初始化字体设置
 if not setup_chinese_font():
     st.error("无法初始化中文字体，图表中文显示可能不正常")
 else:
     st.success("中文字体设置成功")
-# ==================== 应用主代码 ===================
+
+# ==================== 应用主代码 ====================
 # 设置页面布局
 st.set_page_config(page_title="分包合同数据分析系统", layout="wide")
 st.title("分包合同数据分析系统")
@@ -192,7 +195,7 @@ if apply_filter:
                 
                 # 在柱子上方显示数量
                 for i, v in enumerate(counts):
-                    ax.text(i, v + 0.5, str(v), ha='center', va='bottom', fontfamily='Noto Sans SC')
+                    ax.text(i, v + 0.5, str(v), ha='center', va='bottom')
                 
                 plt.tight_layout()
                 st.pyplot(fig)
@@ -215,7 +218,7 @@ if apply_filter:
                 # 在柱子上方显示金额
                 for i, v in enumerate(amount_by_type):
                     ax.text(i, v + max(amount_by_type)*0.01, f"{v:,.0f}", 
-                           ha='center', va='bottom', fontfamily='Noto Sans SC')
+                           ha='center', va='bottom')
                 
                 plt.tight_layout()
                 st.pyplot(fig)
@@ -280,7 +283,7 @@ if apply_filter:
                     aspectratio=dict(x=1.5, y=1, z=0.8)
                 ),
                 title="采购类别3D分析(数量与金额)",
-                font=dict(family="Noto Sans SC", size=12),
+                font=dict(family=plt.rcParams['font.family'][0] if isinstance(plt.rcParams['font.family'], list) else plt.rcParams['font.family']),
                 width=1000,
                 height=600,
                 margin=dict(l=50, r=50, b=50, t=50),
@@ -337,7 +340,7 @@ if apply_filter:
             
             # 在柱子上方显示数量
             for i, v in enumerate(yearly_stats['项目数量']):
-                ax.text(i, v + 0.5, str(v), ha='center', va='bottom', fontfamily='Noto Sans SC')
+                ax.text(i, v + 0.5, str(v), ha='center', va='bottom')
             
             plt.xticks(rotation=0)
             plt.tight_layout()
@@ -354,7 +357,7 @@ if apply_filter:
             # 在柱子上方显示金额
             for i, v in enumerate(yearly_stats['合同金额']):
                 ax.text(i, v + max(yearly_stats['合同金额'])*0.01, f"{v:,.0f}", 
-                       ha='center', va='bottom', fontfamily='Noto Sans SC')
+                       ha='center', va='bottom')
             
             plt.xticks(rotation=0)
             plt.tight_layout()
