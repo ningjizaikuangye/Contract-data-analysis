@@ -1,27 +1,67 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 from datetime import datetime
 import os
-import numpy as np
-from matplotlib import font_manager
-import plotly.graph_objects as go
+import matplotlib as mpl
+from matplotlib.font_manager import fontManager
+import requests
+import tempfile
+import base64
+import io
+import plotly.io as pio
 
-# 设置中文字体
-try:
-    font_path = "SimHei.ttf"
-    font_prop = font_manager.FontProperties(fname=font_path)
-    plt.rcParams['font.family'] = font_prop.get_name()
-except:
-    plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.rcParams['axes.unicode_minus'] = False
+# ==================== 字体配置部分 ====================
+def setup_chinese_font():
+    """设置中文字体，适用于Matplotlib和Plotly"""
+    try:
+        # 尝试从GitHub下载思源黑体
+        font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
+        response = requests.get(font_url)
+        response.raise_for_status()
+        
+        # 保存到临时文件
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as f:
+            f.write(response.content)
+            temp_font_path = f.name
+        
+        # 添加到字体管理器
+        fontManager.addfont(temp_font_path)
+        
+        # 设置Matplotlib默认字体
+        plt.rcParams['font.family'] = 'Noto Sans SC'
+        plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+        
+        # 设置Plotly默认字体
+        pio.templates.default = "plotly_white"
+        pio.templates["plotly_white"].layout.font.family = "Noto Sans SC"
+        
+        return True
+    except Exception as e:
+        st.warning(f"字体下载失败: {str(e)}，尝试使用备用字体")
+        try:
+            # 备用字体列表
+            plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'Microsoft YaHei', 'SimHei', 'FangSong', 'KaiTi']
+            plt.rcParams['axes.unicode_minus'] = False
+            pio.templates["plotly_white"].layout.font.family = "Arial Unicode MS"
+            return True
+        except Exception as e:
+            st.error(f"字体设置失败: {str(e)}")
+            return False
 
+# 初始化字体设置
+if not setup_chinese_font():
+    st.error("无法初始化中文字体，图表中文显示可能不正常")
+
+# ==================== 应用主代码 ====================
 # 设置页面布局
-st.set_page_config(page_title="分包合同数据分析", layout="wide")
+st.set_page_config(page_title="分包合同数据分析系统", layout="wide")
 st.title("分包合同数据分析系统")
 
 # 定义文件路径
-file_path = r"./03 合同2.0系统数据.xlsm"
+file_path = r"合同2.0系统数据.xlsm"  # 确保文件在同一个目录下
 
 # 检查文件是否存在
 if not os.path.exists(file_path):
@@ -32,7 +72,7 @@ if not os.path.exists(file_path):
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_excel(file_path, sheet_name="Items")
+        df = pd.read_excel(file_path, sheet_name="Items", engine='openpyxl')
         date_cols = ['签订时间', '履行期限(起)', '履行期限(止)']
         for col in date_cols:
             if col in df.columns:
@@ -52,7 +92,7 @@ if df is None:
 
 current_time = datetime.now()
 
-# 侧边栏设置
+# ==================== 侧边栏筛选 ====================
 with st.sidebar:
     st.header("筛选条件")
     
@@ -89,7 +129,7 @@ with st.sidebar:
     
     apply_filter = st.button("执行筛选条件")
 
-# 主页面
+# ==================== 主页面内容 ====================
 if apply_filter:
     start_date = pd.to_datetime(start_date)
     end_date = pd.to_datetime(end_date)
@@ -120,9 +160,14 @@ if apply_filter:
                 ax.set_ylabel("合同数量", fontsize=12)
                 ax.set_xlabel("采购类别", fontsize=12)
                 ax.set_title("采购类别合同数量分布", fontsize=14)
+                
+                # 确保中文标签旋转后仍然显示
+                plt.xticks(rotation=45, ha='right')
+                
+                # 在柱子上方显示数量
                 for i, v in enumerate(counts):
-                    ax.text(i, v + 0.5, str(v), ha='center', va='bottom')
-                plt.xticks(rotation=45)
+                    ax.text(i, v + 0.5, str(v), ha='center', va='bottom', fontfamily='Noto Sans SC')
+                
                 plt.tight_layout()
                 st.pyplot(fig)
             else:
@@ -137,9 +182,15 @@ if apply_filter:
                 ax.set_ylabel("合同金额 (元)", fontsize=12)
                 ax.set_xlabel("采购类别", fontsize=12)
                 ax.set_title("采购类别合同金额分布", fontsize=14)
+                
+                # 确保中文标签旋转后仍然显示
+                plt.xticks(rotation=45, ha='right')
+                
+                # 在柱子上方显示金额
                 for i, v in enumerate(amount_by_type):
-                    ax.text(i, v + max(amount_by_type)*0.01, f"{v:,.0f}", ha='center', va='bottom')
-                plt.xticks(rotation=45)
+                    ax.text(i, v + max(amount_by_type)*0.01, f"{v:,.0f}", 
+                           ha='center', va='bottom', fontfamily='Noto Sans SC')
+                
                 plt.tight_layout()
                 st.pyplot(fig)
             else:
@@ -153,10 +204,8 @@ if apply_filter:
             amounts = filtered_df.groupby('选商方式')['标的金额'].sum().reset_index()
             amounts.columns = ['采购类别', '合同金额']
             
-            # 创建3D柱状图(使用Scatter3d模拟)
+            # 创建3D柱状图
             st.subheader("采购类别3D分析(数量与金额)")
-            
-            # 创建图形
             fig = go.Figure()
             
             # 添加数量柱子
@@ -204,32 +253,13 @@ if apply_filter:
                     ),
                     aspectratio=dict(x=1.5, y=1, z=0.8)
                 ),
+                title="采购类别3D分析(数量与金额)",
+                font=dict(family="Noto Sans SC", size=12),
                 width=1000,
                 height=600,
                 margin=dict(l=50, r=50, b=50, t=50),
-                showlegend=True
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
             )
-            
-            # 添加图例
-            fig.add_trace(go.Scatter3d(
-                x=[None],
-                y=[None],
-                z=[None],
-                mode='markers',
-                marker=dict(size=10, color='skyblue'),
-                name='合同数量',
-                showlegend=True
-            ))
-            
-            fig.add_trace(go.Scatter3d(
-                x=[None],
-                y=[None],
-                z=[None],
-                mode='markers',
-                marker=dict(size=10, color='lightgreen'),
-                name='合同金额(比例)',
-                showlegend=True
-            ))
             
             st.plotly_chart(fig, use_container_width=True)
             
@@ -281,7 +311,7 @@ if apply_filter:
             
             # 在柱子上方显示数量
             for i, v in enumerate(yearly_stats['项目数量']):
-                ax.text(i, v + 0.5, str(v), ha='center', va='bottom')
+                ax.text(i, v + 0.5, str(v), ha='center', va='bottom', fontfamily='Noto Sans SC')
             
             plt.xticks(rotation=0)
             plt.tight_layout()
@@ -293,11 +323,12 @@ if apply_filter:
             yearly_stats.plot(x='年份', y='合同金额', kind='bar', ax=ax, color='purple')
             ax.set_ylabel("合同金额 (元)", fontsize=12)
             ax.set_xlabel("年份", fontsize=12)
-            ax.set_title("在建项目金额按年份分布",fontsize=14)
+            ax.set_title("在建项目金额按年份分布", fontsize=14)
             
             # 在柱子上方显示金额
             for i, v in enumerate(yearly_stats['合同金额']):
-                ax.text(i, v + max(yearly_stats['合同金额'])*0.01, f"{v:,.0f}", ha='center', va='bottom')
+                ax.text(i, v + max(yearly_stats['合同金额'])*0.01, f"{v:,.0f}", 
+                       ha='center', va='bottom', fontfamily='Noto Sans SC')
             
             plt.xticks(rotation=0)
             plt.tight_layout()
