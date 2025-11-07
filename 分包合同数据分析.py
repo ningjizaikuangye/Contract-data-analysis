@@ -61,7 +61,7 @@ st.set_page_config(page_title="分包合同数据分析系统", layout="wide")
 st.title("分包合同数据分析系统")
 
 # 定义文件路径
-file_path = r"合同2.0系统数据.xlsm"  # 确保文件在同一个目录下
+file_path = r"03 合同2.0系统数据.xlsm"  # 确保文件在同一个目录下
 
 # 检查文件是否存在
 if not os.path.exists(file_path):
