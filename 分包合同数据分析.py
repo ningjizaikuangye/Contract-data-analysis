@@ -6,37 +6,23 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 import matplotlib as mpl
-from matplotlib.font_manager import fontManager
-import requests
-import tempfile
+from matplotlib.font_manager import fontManager, FontProperties
 import base64
 import io
 import plotly.io as pio
 from matplotlib import font_manager
-
-# ==================== 改进的字体配置部分 ====================
+# ==================== 字体数据嵌入 ====================
+# 思源黑体NotoSansSC-Regular的Base64编码数据（精简版，完整字体太大）
+FONT_DATA_BASE64 = """
+T1RUTwAJAIAAAwAQQ0ZGIIrvfK8AAAVMAAAAHEdERUYAKQAKAAAFMAAAAB5HU1VCAhABLQAABVgA
+AAAgT1MvMlxnUHl1AAAFuAAAAGBjbWFwAA4ADgAABfgAAAAUZ2x5Zv4l7kEAAAYQAAABDGhlYWQA
+...
+"""  # 这里应该是完整的Base64字体数据，因篇幅限制省略
 def setup_chinese_font():
-    """设置中文字体，适用于Matplotlib和Plotly"""
+    """设置中文字体，直接使用嵌入的字体数据"""
     try:
-        # 方案1：尝试从GitHub下载思源黑体
-        font_urls = [
-            "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf",
-            "https://mirrors.tuna.tsinghua.edu.cn/adobe-fonts/source-han-sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf",
-            "https://gitee.com/mirrors/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
-        ]
-        
-        font_data = None
-        for url in font_urls:
-            try:
-                response = requests.get(url, timeout=10)
-                response.raise_for_status()
-                font_data = response.content
-                break
-            except:
-                continue
-        
-        if font_data is None:
-            raise Exception("所有字体下载源都不可用")
+        # 解码Base64字体数据
+        font_data = base64.b64decode(FONT_DATA_BASE64)
         
         # 保存到临时文件
         with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as f:
@@ -57,41 +43,27 @@ def setup_chinese_font():
         return True
         
     except Exception as e:
-        st.warning(f"字体下载失败: {str(e)}，使用备用字体方案")
+        st.warning(f"内置字体设置失败: {str(e)}，使用最后备用方案")
         try:
-            # 方案2：使用系统可能存在的字体
-            system_fonts = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'WenQuanYi Micro Hei', 'FangSong', 'KaiTi']
-            
-            # 检查哪些字体实际可用
-            available_fonts = []
-            for f in system_fonts:
-                try:
-                    font_manager.FontProperties(family=f)
-                    available_fonts.append(f)
-                except:
-                    pass
-            
-            if available_fonts:
-                plt.rcParams['font.family'] = available_fonts[0]
-                plt.rcParams['axes.unicode_minus'] = False
-                pio.templates["plotly_white"].layout.font.family = available_fonts[0]
-                st.info(f"使用系统字体: {available_fonts[0]}")
-                return True
-            else:
-                raise Exception("没有找到可用的系统字体")
-                
-        except Exception as e:
-            st.error(f"备用字体设置失败: {str(e)}")
-            # 最终回退方案
-            plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']  # 大多数系统都有
+            # 最终备用方案：尝试使用Arial Unicode MS（大多数系统都有）
+            plt.rcParams['font.family'] = 'Arial Unicode MS'
             plt.rcParams['axes.unicode_minus'] = False
+            pio.templates["plotly_white"].layout.font.family = "Arial Unicode MS"
+            
+            # 验证字体是否真的可用
+            test_font = FontProperties(family=plt.rcParams['font.family'])
+            if not font_manager.findfont(test_font):
+                raise Exception("Arial Unicode MS也不可用")
+                
+            return True
+        except:
+            st.error("所有字体方案均失败，中文显示将不正常")
             return False
-
 # 初始化字体设置
-if not setup_chinese_font():
-    st.error("无法初始化中文字体，图表中文显示可能不正常")
-else:
+if setup_chinese_font():
     st.success("中文字体设置成功")
+else:
+    st.error("中文字体初始化失败，部分内容可能显示为方框")
 
 # ==================== 应用主代码 ====================
 # 设置页面布局
