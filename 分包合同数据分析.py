@@ -154,7 +154,7 @@ if procurement_types:
 st.success(f"✅ 筛选到 {len(filtered_df)} 条记录")
 
 # 获取当前字体设置
-current_font = plt.rcParams['font.family'][0] if isinstance plt.rcParams['font.family'], list) else plt.rcParams['font.family']
+current_font = plt.rcParams['font.family'][0] if isinstance(plt.rcParams['font.family'], list) else plt.rcParams['font.family']
 font_props = FontProperties(family=current_font)
 
 # 数据分析展示
