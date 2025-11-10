@@ -5,88 +5,102 @@ import numpy as np
 import plotly.graph_objects as go
 import matplotlib as mpl
 from matplotlib import font_manager
-from datetime import datetime  # 修改这里的导入方式
+from datetime import datetime  # 正确导入方式
 import plotly.io as pio
-import datetime
 import os
-import base64
-import tempfile
-# ===== 终极字体解决方案 =====
+from matplotlib.font_manager import FontProperties
+# ===== 字体解决方案 =====
 def setup_chinese_font():
-    """确保中文显示的终极方案"""
+    """确保中文显示的可靠方案"""
     try:
-        # 1. 尝试使用系统字体
-        system_fonts = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
-                       'WenQuanYi Micro Hei', 'STHeiti', 'PingFang SC']
+        # 尝试的系统字体列表（按优先级）
+        font_preference = [
+            'Microsoft YaHei',    # Windows
+            'SimHei',             # Windows
+            'Arial Unicode MS',   # Mac
+            'WenQuanYi Micro Hei',# Linux
+            'sans-serif'          # 最终回退
+        ]
         
-        # 查找可用字体
+        # 查找第一个可用的字体
         available_font = None
-        for font in system_fonts:
+        for font in font_preference:
             try:
-                font_path = font_manager.findfont(font)
-                if font_path:
+                # 创建字体属性对象测试
+                test_font = FontProperties(family=font)
+                if font_manager.findfont(test_font):
                     available_font = font
                     break
             except:
                 continue
         
-        # 2. 如果找到系统字体则使用
         if available_font:
+            # 设置Matplotlib
             plt.rcParams['font.family'] = available_font
             plt.rcParams['axes.unicode_minus'] = False
+            
+            # 设置Plotly
             pio.templates.default = "plotly_white"
             pio.templates["plotly_white"].layout.font.family = available_font
-            st.success(f"使用系统字体: {available_font}")
+            
+            st.success(f"使用字体: {available_font}")
             return True
-        
-        # 3. 系统字体不可用时，使用Web安全字体回退
-        plt.rcParams['font.family'] = ['sans-serif']
-        plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'Microsoft YaHei', 'SimSun']
-        plt.rcParams['axes.unicode_minus'] = False
-        
-        # 4. 强制设置Plotly使用相同字体
-        pio.templates.default = "plotly_white"
-        pio.templates["plotly_white"].layout.font.family = "Arial Unicode MS, Microsoft YaHei, sans-serif"
-        
-        return True
-        
+        else:
+            raise Exception("未找到可用字体")
+            
     except Exception as e:
-        st.error(f"字体设置错误: {str(e)}")
+        st.error(f"字体设置失败: {str(e)}")
+        # 强制回退
+        plt.rcParams['font.family'] = 'sans-serif'
+        plt.rcParams['axes.unicode_minus'] = False
         return False
 # 初始化字体
 setup_chinese_font()
-# ==================== 应用主代码 ====================
-# 设置页面布局
-st.set_page_config(page_title="分包合同数据分析系统", layout="wide")
-st.title("分包合同数据分析系统")
-# 定义文件路径
-file_path = r"03 合同2.0系统数据.xlsm"  # 确保文件在同一个目录下
-# 检查文件是否存在
-if not os.path.exists(file_path):
-    st.error(f"文件未找到: {file_path}")
-    st.stop()
-# 读取Excel数据
-@st.cache_data
-def load_data():
-    try:
-        df = pd.read_excel(file_path, sheet_name="Items", engine='openpyxl')
-        date_cols = ['签订时间', '履行期限(起)', '履行期限(止)']
-        for col in date_cols:
-            if col in df.columns:
+# ===== 主应用代码 =====
+def main():
+    st.set_page_config(page_title="分包合同数据分析", layout="wide")
+    st.title("分包合同数据分析系统")
+    
+    # 1. 数据加载
+    @st.cache_data
+    def load_data():
+        try:
+            df = pd.read_excel("03 合同2.0系统数据.xlsm", sheet_name="Items", engine='openpyxl')
+            
+            # 处理日期列
+            date_cols = [c for c in ['签订时间', '履行期限(起)', '履行期限(止)'] if c in df.columns]
+            for col in date_cols:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
-        if '标的金额' in df.columns:
-            df['标的金额'] = pd.to_numeric(df['标的金额'], errors='coerce')
-        if '承办部门' in df.columns:
-            df['承办部门'] = df['承办部门'].fillna('未知部门')
-        return df
+            
+            # 处理金额
+            if '标的金额' in df.columns:
+                df['标的金额'] = pd.to_numeric(df['标的金额'], errors='coerce')
+                df['标的金额(万元)'] = df['标的金额'] / 10000
+            
+            # 处理部门
+            if '承办部门' in df.columns:
+                df['承办部门'] = df['承办部门'].fillna('未知部门')
+            
+            return df
+        except Exception as e:
+            st.error(f"数据加载失败: {str(e)}")
+            return None
+    
+    df = load_data()
+    if df is None:
+        st.stop()
+    
+    # 获取当前时间（修正后的方式）
+    try:
+        current_time = datetime.now()
     except Exception as e:
-        st.error(f"读取数据时出错: {str(e)}")
-        return None
-df = load_data()
-if df is None:
-    st.stop()
-current_time = datetime.now()
-
+        st.error(f"获取当前时间失败: {str(e)}")
+        current_time = pd.Timestamp.now()  # 使用pandas的备用方案
+    
+    # [...] 其余筛选和分析代码保持不变
+    # 注意：在实际使用时，这里应该包含您原有的筛选和分析代码
+if __name__ == "__main__":
+    main()
 
 
 # ==================== 侧边栏筛选 ====================
