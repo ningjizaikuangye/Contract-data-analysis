@@ -135,7 +135,7 @@ with st.sidebar:
     selected_types = st.multiselect("选择采购类别", procurement_types, default=procurement_types)
     
     # 图表类型选择
-    chart_type = st.radio("选择图表类型", ["2D图表", "3D交互图表"])
+    chart_type = st.radio("选择图表类型", ["2D图表", "3D图表"])
     
     apply_filter = st.button("执行筛选条件")
 
@@ -225,7 +225,7 @@ if apply_filter:
     if chart_type == "2D图表":
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("采购类别合同数量")
+            st.subheader("合同数量")
             if not filtered_df.empty:
                 counts = filtered_df['选商方式'].value_counts()
                 fig = create_plotly_2d_chart(
@@ -240,7 +240,7 @@ if apply_filter:
                 st.warning("没有符合条件的数据")
                 
         with col2:
-            st.subheader("采购类别合同金额")
+            st.subheader("合同金额")
             if not filtered_df.empty:
                 amount_by_type = filtered_df.groupby('选商方式')['标的金额'].sum().sort_values(ascending=False)
                 fig = create_plotly_2d_chart(
@@ -254,7 +254,7 @@ if apply_filter:
             else:
                 st.warning("没有符合条件的数据")
     
-    else:  # 3D交互图表
+    else:  # 3D图表
         if not filtered_df.empty:
             # 准备数据
             counts = filtered_df['选商方式'].value_counts().reset_index()
@@ -293,7 +293,7 @@ if apply_filter:
                     y=['金额', '金额'],
                     z=[0, scaled_amount],
                     mode='lines',
-                    line=dict(color='lightgreen', width=10),
+                    line=dict(color='skyblue', width=10),
                     name=f"{row['采购类别']} 金额",
                     showlegend=False,
                     hoverinfo='text',
@@ -336,7 +336,7 @@ if apply_filter:
                 y=[None],
                 z=[None],
                 mode='markers',
-                marker=dict(size=10, color='lightgreen'),
+                marker=dict(size=10, color='skyblue'),
                 name='合同金额(比例)',
                 showlegend=True
             ))
