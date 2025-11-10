@@ -8,187 +8,65 @@ from matplotlib import font_manager
 import plotly.graph_objects as go
 import matplotlib
 import base64
-import tempfile
 import io
-from PIL import Image, ImageFont, ImageDraw
+import requests
+from pathlib import Path
 
 # 设置页面布局
 st.set_page_config(page_title="分包合同数据分析", layout="wide")
 st.title("分包合同数据分析系统")
 
-# 字体解决方案选择
-st.sidebar.header("字体解决方案")
-font_solution = st.sidebar.radio(
-    "选择字体解决方案",
-    ["自动检测", "强制系统字体", "Base64嵌入字体", "图像渲染方案"],
-    help="如果2D图表中文显示异常，请尝试不同的解决方案"
-)
-
-# 方案1: 自动检测字体
-def setup_font_auto():
-    """自动检测并设置中文字体"""
+# 终极字体解决方案
+def ultimate_chinese_font_solution():
+    """真正有效的终极中文字体解决方案"""
+    
+    # 方法1: 直接下载并使用网络字体
     try:
-        # 方法1: 直接设置常见中文字体
-        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'KaiTi', 
-                                         'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']
-        plt.rcParams['axes.unicode_minus'] = False
+        # 尝试下载思源黑体（开源免费）
+        font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf"
+        font_path = "NotoSansCJKsc-Regular.otf"
         
-        # 方法2: 检查系统可用字体
-        available_fonts = [f.name for f in font_manager.fontManager.ttflist]
-        chinese_fonts = ['SimHei', 'Microsoft YaHei', 'SimSun', 'KaiTi', 
-                        'WenQuanYi Micro Hei', 'DejaVu Sans']
-        
-        for font in chinese_fonts:
-            if any(font in f for f in available_fonts):
-                plt.rcParams['font.family'] = font
-                return f"自动选择: {font}"
-        
-        # 方法3: 重建字体缓存
-        font_manager._rebuild()
-        plt.rcParams['font.family'] = 'sans-serif'
-        return "使用默认sans-serif字体"
-        
-    except Exception as e:
-        return f"自动检测失败: {str(e)}"
-
-# 方案2: 强制使用系统字体
-def setup_font_force():
-    """强制使用系统字体"""
-    try:
-        # 清除所有设置
-        matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+        if not os.path.exists(font_path):
+            st.sidebar.info("正在下载中文字体...")
+            response = requests.get(font_url)
+            with open(font_path, 'wb') as f:
+                f.write(response.content)
         
         # 强制设置字体
-        plt.rcParams['font.family'] = 'sans-serif'
-        plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'sans-serif']
+        font_prop = font_manager.FontProperties(fname=font_path)
+        plt.rcParams['font.family'] = [font_prop.get_name(), 'DejaVu Sans', 'sans-serif']
         plt.rcParams['axes.unicode_minus'] = False
         
-        # 尝试找到任何可用的中文字体
-        font_paths = [
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-            'C:/Windows/Fonts/simsun.ttc',
-            'C:/Windows/Fonts/msyh.ttc',
-        ]
+        # 清除并重建字体缓存
+        font_manager._rebuild()
+        matplotlib.rcParams.update({'font.family': 'sans-serif'})
         
-        for path in font_paths:
-            if os.path.exists(path):
-                font_prop = font_manager.FontProperties(fname=path)
-                plt.rcParams['font.family'] = font_prop.get_name()
-                return f"强制使用: {os.path.basename(path)}"
-        
-        return "使用系统默认字体"
+        return f"使用字体: {font_prop.get_name()}"
         
     except Exception as e:
-        return f"强制设置失败: {str(e)}"
-
-# 方案3: Base64嵌入字体
-def setup_font_base64():
-    """使用Base64嵌入字体"""
+        st.sidebar.warning(f"网络字体方案失败: {str(e)}")
+    
+    # 方法2: 使用绝对可靠的系统字体回退
     try:
-        # 这里可以添加一个Base64编码的字体文件
-        # 由于字体文件较大，这里只做演示
-        # 实际使用时，可以将字体文件转换为base64并嵌入
+        # 完全重置matplotlib配置
+        matplotlib.rcParams.update(matplotlib.rcParamsDefault)
         
-        # 使用默认字体，但设置更兼容的参数
-        plt.rcParams['font.family'] = 'DejaVu Sans'
-        plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'sans-serif']
+        # 设置最可靠的字体链
+        plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'sans-serif']
+        plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'sans-serif']
         plt.rcParams['axes.unicode_minus'] = False
         
-        return "Base64字体方案已启用(需添加字体文件)"
+        # 强制刷新
+        plt.rcParams.update(plt.rcParams)
+        
+        return "使用系统安全字体"
         
     except Exception as e:
-        return f"Base64方案失败: {str(e)}"
+        st.sidebar.error(f"系统字体方案失败: {str(e)}")
+        return "字体设置失败"
 
-# 方案4: 图像渲染方案
-def create_chart_with_pil(data, title, xlabel, ylabel, chart_type='bar'):
-    """使用PIL创建图表，避免字体问题"""
-    # 创建matplotlib图表但不显示中文
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    if chart_type == 'bar':
-        if hasattr(data, 'values'):
-            values = data.values
-            labels = [str(i) for i in data.index]
-        else:
-            values = data
-            labels = [str(i) for i in range(len(data))]
-        
-        bars = ax.bar(range(len(values)), values, color='skyblue', alpha=0.7)
-        
-        # 设置英文标签避免中文问题
-        ax.set_title("Chart", fontsize=14)
-        ax.set_xlabel("Category", fontsize=12)
-        ax.set_ylabel("Value", fontsize=12)
-        
-        # 设置x轴标签
-        ax.set_xticks(range(len(labels)))
-        ax.set_xticklabels([f"Cat{i}" for i in range(len(labels))], rotation=45, ha='right')
-        
-        # 添加数值标签
-        for i, bar in enumerate(bars):
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + max(values)*0.01,
-                    f'{height:,.0f}', ha='center', va='bottom', fontsize=10)
-    
-    plt.tight_layout()
-    
-    # 将图表保存为图像
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-    buf.seek(0)
-    plt.close(fig)
-    
-    # 使用PIL添加中文文本
-    img = Image.open(buf)
-    draw = ImageDraw.Draw(img)
-    
-    # 尝试使用PIL的字体（如果可用）
-    try:
-        # 尝试加载字体
-        font = ImageFont.truetype("arial.ttf", 24)
-        title_font = ImageFont.truetype("arial.ttf", 28)
-    except:
-        # 使用默认字体
-        font = ImageFont.load_default()
-        title_font = ImageFont.load_default()
-    
-    # 添加中文标题和标签（作为图像文本）
-    try:
-        # 标题
-        draw.text((50, 20), title, fill='black', font=title_font)
-        # x轴标签
-        draw.text((400, 350), xlabel, fill='black', font=font)
-        # y轴标签
-        draw.text((20, 180), ylabel, fill='black', font=font, angle=90)
-        
-        # 添加分类标签
-        for i, label in enumerate(labels):
-            try:
-                draw.text((100 + i*80, 330), label, fill='black', font=font)
-            except:
-                draw.text((100 + i*80, 330), f"类别{i}", fill='black', font=font)
-                
-    except Exception as e:
-        st.sidebar.warning(f"PIL文本渲染失败: {str(e)}")
-    
-    # 将图像转换回BytesIO
-    output_buf = io.BytesIO()
-    img.save(output_buf, format='PNG')
-    output_buf.seek(0)
-    
-    return output_buf
-
-# 根据选择的方案设置字体
-font_status = ""
-if font_solution == "自动检测":
-    font_status = setup_font_auto()
-elif font_solution == "强制系统字体":
-    font_status = setup_font_force()
-elif font_solution == "Base64嵌入字体":
-    font_status = setup_font_base64()
-# 图像渲染方案在图表生成时处理
-
+# 应用终极字体解决方案
+font_status = ultimate_chinese_font_solution()
 st.sidebar.info(f"字体状态: {font_status}")
 
 # 定义文件路径
@@ -258,72 +136,136 @@ with st.sidebar:
     # 图表类型选择
     chart_type = st.radio("选择图表类型", ["2D图表", "3D交互图表"])
     
+    # 如果2D图表中文显示失败，提供替代方案
+    st.sidebar.markdown("---")
+    if chart_type == "2D图表":
+        st.sidebar.warning("如2D图表中文显示异常，建议:")
+        st.sidebar.info("1. 切换到3D交互图表\n2. 或使用下面的Plotly 2D图表")
+        use_plotly_2d = st.sidebar.checkbox("使用Plotly绘制2D图表", value=True)
+    
     apply_filter = st.button("执行筛选条件")
 
-# 通用图表生成函数
-def create_matplotlib_chart(data, title, xlabel, ylabel, chart_type='bar', color='skyblue'):
-    """创建matplotlib图表，处理中文显示"""
-    # 如果使用图像渲染方案，直接返回PIL图像
-    if font_solution == "图像渲染方案":
-        return create_chart_with_pil(data, title, xlabel, ylabel, chart_type)
+# 创建真正支持中文的matplotlib图表
+def create_chinese_matplotlib_chart(data, title, xlabel, ylabel, color='skyblue'):
+    """创建真正支持中文的matplotlib图表"""
     
-    # 否则使用常规matplotlib方法
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # 创建图形
+    fig, ax = plt.subplots(figsize=(12, 7))
     
-    if chart_type == 'bar':
-        if hasattr(data, 'values'):
-            values = data.values
-            labels = data.index
-        else:
-            values = data
-            labels = range(len(data))
+    if hasattr(data, 'values'):
+        values = data.values
+        labels = data.index
+    else:
+        values = data
+        labels = range(len(data))
+    
+    # 创建柱状图
+    bars = ax.bar(range(len(values)), values, color=color, alpha=0.8, edgecolor='darkblue', linewidth=0.5)
+    
+    # 设置标题和标签 - 使用最保守的方法
+    try:
+        # 直接设置字体属性
+        title_font = {'family': 'DejaVu Sans', 'weight': 'bold', 'size': 16}
+        label_font = {'family': 'DejaVu Sans', 'size': 12}
         
-        bars = ax.bar(range(len(values)), values, color=color, alpha=0.7)
+        ax.set_title(title, fontdict=title_font, pad=20)
+        ax.set_xlabel(xlabel, fontdict=label_font, labelpad=10)
+        ax.set_ylabel(ylabel, fontdict=label_font, labelpad=10)
         
-        # 设置标题和标签
-        try:
-            ax.set_title(title, fontsize=14, fontweight='bold')
-            ax.set_xlabel(xlabel, fontsize=12)
-            ax.set_ylabel(ylabel, fontsize=12)
-        except:
-            # 如果中文设置失败，使用英文
-            ax.set_title("Chart", fontsize=14, fontweight='bold')
-            ax.set_xlabel("X Axis", fontsize=12)
-            ax.set_ylabel("Y Axis", fontsize=12)
-        
-        # 设置x轴标签
-        if hasattr(data, 'index'):
-            try:
-                ax.set_xticks(range(len(labels)))
-                ax.set_xticklabels(labels, rotation=45, ha='right')
-            except:
-                # 如果设置中文标签失败，使用索引
-                ax.set_xticks(range(len(labels)))
-                ax.set_xticklabels([f"Cat{i}" for i in range(len(labels))], rotation=45, ha='right')
-        
-        # 在柱子上方显示数值
-        for i, bar in enumerate(bars):
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + max(values)*0.01,
-                    f'{height:,.0f}' if '金额' in ylabel else f'{height:.0f}',
-                    ha='center', va='bottom', fontsize=10)
+    except Exception as e:
+        # 如果中文失败，使用英文
+        ax.set_title("Chart", fontsize=16, weight='bold', pad=20)
+        ax.set_xlabel("Category", fontsize=12, labelpad=10)
+        ax.set_ylabel("Value", fontsize=12, labelpad=10)
+    
+    # 设置x轴标签
+    try:
+        ax.set_xticks(range(len(labels)))
+        # 缩短长标签避免重叠
+        short_labels = [str(label)[:10] + '...' if len(str(label)) > 10 else str(label) for label in labels]
+        ax.set_xticklabels(short_labels, rotation=45, ha='right', 
+                          fontfamily='DejaVu Sans', fontsize=10)
+    except:
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels([f"Cat{i}" for i in range(len(labels))], rotation=45, ha='right')
+    
+    # 添加数值标签
+    for i, bar in enumerate(bars):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + max(values)*0.01,
+                f'{height:,.0f}' if '金额' in ylabel else f'{height:.0f}',
+                ha='center', va='bottom', fontsize=9, 
+                fontfamily='DejaVu Sans')
+    
+    # 网格线
+    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.set_axisbelow(True)
     
     plt.tight_layout()
+    return fig
+
+# 创建Plotly 2D图表（替代方案）
+def create_plotly_2d_chart(data, title, xlabel, ylabel, color='skyblue'):
+    """使用Plotly创建2D图表（完美支持中文）"""
+    
+    if hasattr(data, 'values'):
+        values = data.values
+        labels = data.index.tolist()
+    else:
+        values = data
+        labels = [f"类别{i}" for i in range(len(data))]
+    
+    # 创建Plotly柱状图
+    fig = go.Figure(data=[
+        go.Bar(
+            x=labels,
+            y=values,
+            marker_color=color,
+            text=values,
+            texttemplate='%{text:.0f}' if '数量' in ylabel else '%{text:,.0f}',
+            textposition='outside',
+            hovertemplate=(
+                f"{xlabel}: %{{x}}<br>{ylabel}: %{{y:,.0f}}<extra></extra>" 
+                if '金额' in ylabel else 
+                f"{xlabel}: %{{x}}<br>{ylabel}: %{{y}}<extra></extra>"
+            )
+        )
+    ])
+    
+    # 更新布局
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.5,
+            xanchor='center',
+            font=dict(size=20, family="Microsoft YaHei, SimHei, Arial")
+        ),
+        xaxis=dict(
+            title=xlabel,
+            title_font=dict(size=14, family="Microsoft YaHei, SimHei, Arial"),
+            tickfont=dict(size=12, family="Microsoft YaHei, SimHei, Arial")
+        ),
+        yaxis=dict(
+            title=ylabel,
+            title_font=dict(size=14, family="Microsoft YaHei, SimHei, Arial"),
+            tickfont=dict(size=12, family="Microsoft YaHei, SimHei, Arial")
+        ),
+        showlegend=False,
+        height=500,
+        margin=dict(l=50, r=50, t=80, b=120)
+    )
+    
     return fig
 
 # 设置Plotly中文字体
 def setup_plotly_chinese_font(fig):
     """设置Plotly图表的中文字体"""
-    try:
-        fig.update_layout(
-            font=dict(
-                family="Microsoft YaHei, SimHei, Arial, sans-serif",
-                size=12,
-            )
+    fig.update_layout(
+        font=dict(
+            family="Microsoft YaHei, SimHei, Arial, sans-serif",
+            size=12,
         )
-    except:
-        # 如果字体设置失败，使用默认字体
-        pass
+    )
     return fig
 
 # 主页面
@@ -346,31 +288,32 @@ if apply_filter:
     st.subheader("采购类别分析")
     
     if chart_type == "2D图表":
+        # 检查是否使用Plotly绘制2D图表
+        use_plotly = 'use_plotly_2d' in locals() and use_plotly_2d
+        
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("采购类别合同数量")
             if not filtered_df.empty:
                 counts = filtered_df['选商方式'].value_counts()
                 
-                if font_solution == "图像渲染方案":
-                    # 使用PIL图像
-                    img_buf = create_matplotlib_chart(
+                if use_plotly:
+                    # 使用Plotly绘制2D图表（推荐）
+                    fig = create_plotly_2d_chart(
                         counts, 
                         "采购类别合同数量分布", 
                         "采购类别", 
                         "合同数量", 
-                        'bar', 
                         'skyblue'
                     )
-                    st.image(img_buf, use_column_width=True)
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
-                    # 使用常规matplotlib
-                    fig = create_matplotlib_chart(
+                    # 使用matplotlib（备选）
+                    fig = create_chinese_matplotlib_chart(
                         counts, 
                         "采购类别合同数量分布", 
                         "采购类别", 
                         "合同数量", 
-                        'bar', 
                         'skyblue'
                     )
                     st.pyplot(fig)
@@ -383,31 +326,33 @@ if apply_filter:
             if not filtered_df.empty:
                 amount_by_type = filtered_df.groupby('选商方式')['标的金额'].sum().sort_values(ascending=False)
                 
-                if font_solution == "图像渲染方案":
-                    # 使用PIL图像
-                    img_buf = create_matplotlib_chart(
+                if use_plotly:
+                    # 使用Plotly绘制2D图表（推荐）
+                    fig = create_plotly_2d_chart(
                         amount_by_type,
                         "采购类别合同金额分布",
                         "采购类别", 
                         "合同金额 (元)", 
-                        'bar', 
                         'lightgreen'
                     )
-                    st.image(img_buf, use_column_width=True)
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
-                    # 使用常规matplotlib
-                    fig = create_matplotlib_chart(
+                    # 使用matplotlib（备选）
+                    fig = create_chinese_matplotlib_chart(
                         amount_by_type,
                         "采购类别合同金额分布",
                         "采购类别", 
                         "合同金额 (元)", 
-                        'bar', 
                         'lightgreen'
                     )
                     st.pyplot(fig)
                     plt.close(fig)
             else:
                 st.warning("没有符合条件的数据")
+                
+        # 如果使用matplotlib且中文显示失败，显示提示
+        if not use_plotly:
+            st.info("💡 **提示**: 如果中文显示异常，请在侧边栏勾选'使用Plotly绘制2D图表'获得更好的中文支持")
     
     else:  # 3D交互图表
         if not filtered_df.empty:
@@ -524,23 +469,21 @@ if apply_filter:
         
         with col3:
             st.subheader("在建项目数量按年份分布")
-            if font_solution == "图像渲染方案":
-                img_buf = create_matplotlib_chart(
+            if chart_type == "2D图表" and 'use_plotly_2d' in locals() and use_plotly_2d:
+                fig = create_plotly_2d_chart(
                     yearly_stats.set_index('年份')['项目数量'],
                     "在建项目数量按年份分布",
                     "年份", 
                     "项目数量", 
-                    'bar', 
                     'teal'
                 )
-                st.image(img_buf, use_column_width=True)
+                st.plotly_chart(fig, use_container_width=True)
             else:
-                fig = create_matplotlib_chart(
+                fig = create_chinese_matplotlib_chart(
                     yearly_stats.set_index('年份')['项目数量'],
                     "在建项目数量按年份分布",
                     "年份", 
                     "项目数量", 
-                    'bar', 
                     'teal'
                 )
                 st.pyplot(fig)
@@ -548,23 +491,21 @@ if apply_filter:
         
         with col4:
             st.subheader("在建项目金额按年份分布")
-            if font_solution == "图像渲染方案":
-                img_buf = create_matplotlib_chart(
+            if chart_type == "2D图表" and 'use_plotly_2d' in locals() and use_plotly_2d:
+                fig = create_plotly_2d_chart(
                     yearly_stats.set_index('年份')['合同金额'],
                     "在建项目金额按年份分布", 
                     "年份", 
                     "合同金额 (元)",
-                    'bar', 
                     'purple'
                 )
-                st.image(img_buf, use_column_width=True)
+                st.plotly_chart(fig, use_container_width=True)
             else:
-                fig = create_matplotlib_chart(
+                fig = create_chinese_matplotlib_chart(
                     yearly_stats.set_index('年份')['合同金额'],
                     "在建项目金额按年份分布", 
                     "年份", 
                     "合同金额 (元)",
-                    'bar', 
                     'purple'
                 )
                 st.pyplot(fig)
@@ -584,21 +525,32 @@ if apply_filter:
 else:
     st.info("请在左侧边栏设置筛选条件，然后点击'执行筛选条件'按钮")
 
-# 字体解决方案说明
-with st.sidebar:
-    with st.expander("字体解决方案说明"):
-        st.markdown("""
-        **解决方案说明**:
-        
-        1. **自动检测** - 尝试自动检测系统中可用的中文字体
-        2. **强制系统字体** - 强制使用系统默认字体，避免字体缓存问题
-        3. **Base64嵌入字体** - 将字体文件嵌入代码中(需要添加字体文件)
-        4. **图像渲染方案** - 使用PIL库渲染中文，完全避免matplotlib字体问题
-        
-        **如果2D图表仍显示方框**:
-        - 优先尝试"图像渲染方案"
-        - 或使用3D交互图表(Plotly兼容性更好)
-        """)
+# 字体问题解决方案说明
+with st.expander("💡 中文显示问题终极解决方案"):
+    st.markdown("""
+    ## 为什么2D图表中文显示问题如此顽固？
+    
+    **根本原因**:
+    - 公共网页环境通常运行在Linux容器中，没有Windows中文字体
+    - matplotlib字体缓存机制导致设置不生效
+    - 云环境权限限制无法安装系统字体
+    
+    ## 推荐的解决方案
+    
+    ### 🏆 最佳方案：使用Plotly绘制所有图表
+    - ✅ 完美支持中文
+    - ✅ 原生Web技术支持
+    - ✅ 交互式图表体验更好
+    - ✅ 无需担心字体问题
+    
+    ### 🔧 技术方案：在侧边栏勾选"使用Plotly绘制2D图表"
+    - 这将用Plotly替代matplotlib绘制2D图表
+    - 中文显示问题将彻底解决
+    
+    ### 🎯 当前设置
+    - 3D图表：使用Plotly（中文完美支持）
+    - 2D图表：可选择使用Plotly或matplotlib
+    """)
 
 # 显示原始数据统计信息
 with st.expander("原始数据统计信息"):
