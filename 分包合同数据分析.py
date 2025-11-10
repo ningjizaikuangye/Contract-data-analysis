@@ -71,7 +71,7 @@ def setup_chinese_font():
 font_setup_success = setup_chinese_font()
 
 # 定义文件路径
-file_path = r"\\sjzx\公司数据中心\经营管理部（预结算中心）\03_分包采购及合同管理\04 台账报表\01 分包合同数据-台账-分析-报表\03 合同2.0系统数据.xlsm"
+file_path = r"03 合同2.0系统数据.xlsm"
 
 # 检查文件是否存在
 if not os.path.exists(file_path):
