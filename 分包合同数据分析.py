@@ -3,56 +3,57 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime
-import os
 import matplotlib as mpl
-from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager
 import plotly.io as pio
-
-# ===== 100%可用的字体解决方案 =====
-def set_chinese_font():
-    """确保中文显示的终极解决方案"""
+import datetime
+import os
+import base64
+import tempfile
+# ===== 终极字体解决方案 =====
+def setup_chinese_font():
+    """确保中文显示的终极方案"""
     try:
-        # 尝试所有可能的中文字体
-        font_list = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
-                   'WenQuanYi Micro Hei', 'FangSong', 'KaiTi', 
-                   'STHeiti', 'LiHei Pro', 'AppleGothic']
+        # 1. 尝试使用系统字体
+        system_fonts = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
+                       'WenQuanYi Micro Hei', 'STHeiti', 'PingFang SC']
         
-        # 查找第一个可用的字体
+        # 查找可用字体
         available_font = None
-        for font in font_list:
+        for font in system_fonts:
             try:
-                # 测试字体是否存在
-                test_font = FontProperties(family=font)
-                if mpl.font_manager.findfont(test_font):
+                font_path = font_manager.findfont(font)
+                if font_path:
                     available_font = font
                     break
             except:
                 continue
         
+        # 2. 如果找到系统字体则使用
         if available_font:
-            # 设置Matplotlib
             plt.rcParams['font.family'] = available_font
             plt.rcParams['axes.unicode_minus'] = False
-            
-            # 设置Plotly
             pio.templates.default = "plotly_white"
             pio.templates["plotly_white"].layout.font.family = available_font
-            
             st.success(f"使用系统字体: {available_font}")
             return True
-        else:
-            # 最终回退方案：强制使用符号字体
-            plt.rcParams['font.sans-serif'] = ['sans-serif']
-            plt.rcParams['axes.unicode_minus'] = False
-            return False
-            
+        
+        # 3. 系统字体不可用时，使用Web安全字体回退
+        plt.rcParams['font.family'] = ['sans-serif']
+        plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'Microsoft YaHei', 'SimSun']
+        plt.rcParams['axes.unicode_minus'] = False
+        
+        # 4. 强制设置Plotly使用相同字体
+        pio.templates.default = "plotly_white"
+        pio.templates["plotly_white"].layout.font.family = "Arial Unicode MS, Microsoft YaHei, sans-serif"
+        
+        return True
+        
     except Exception as e:
         st.error(f"字体设置错误: {str(e)}")
         return False
-
 # 初始化字体
-set_chinese_font()
+setup_chinese_font()
 
 # ===== 主应用代码 =====
 # ==================== 应用主代码 ====================
