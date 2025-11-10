@@ -63,7 +63,7 @@ def main():
     @st.cache_data
     def load_data():
         try:
-            df = pd.read_excel("合同2.0系统数据.xlsm", sheet_name="Items", engine='openpyxl')
+            df = pd.read_excel("03 合同2.0系统数据.xlsm", sheet_name="Items", engine='openpyxl')
             
             # 日期和金额处理
             date_cols = [c for c in ['签订时间', '履行期限(起)', '履行期限(止)'] if c in df.columns]
