@@ -10,50 +10,7 @@ from matplotlib.font_manager import FontProperties
 import tempfile
 import base64
 import plotly.io as pio
-from hashlib import sha256
-# ==================== 密码保护系统 ====================
-def check_password():
-    """密码验证系统"""
-    def password_entered():
-        # 计算输入密码的SHA256哈希值
-        input_hash = sha256(st.session_state["password"].encode()).hexdigest()
-        # 正确的密码"yuelifeng@2018"的哈希值
-        correct_hash = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
-        
-        if input_hash == correct_hash:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # 验证成功后删除临时密码
-        else:
-            st.session_state["password_correct"] = False
-    if "password_correct" not in st.session_state:
-        # 首次运行显示密码输入框
-        st.text_input(
-            "请输入访问密码", 
-            type="password",
-            on_change=password_entered,
-            key="password"
-        )
-        return False
-    elif not st.session_state["password_correct"]:
-        # 密码错误时显示
-        st.text_input(
-            "密码错误，请重试", 
-            type="password",
-            on_change=password_entered,
-            key="password"
-        )
-        st.error("😕 密码不正确")
-        return False
-    else:
-        # 密码正确
-        return True
-if not check_password():
-    st.stop()  # 密码不正确时停止执行后续代码
-# [...] 其余部分保持与之前相同的代码 [...]
-# 锁定系统按钮
-if st.sidebar.button("🔒 锁定系统"):
-    st.session_state["password_correct"] = False
-    st.rerun()
+
 
 # ==================== 字体终极解决方案 ====================
 def setup_chinese_font():
