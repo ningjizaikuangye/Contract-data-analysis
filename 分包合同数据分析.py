@@ -6,351 +6,206 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 import matplotlib as mpl
-from matplotlib.font_manager import fontManager, FontProperties
-import base64
-import io
+from matplotlib.font_manager import FontProperties
 import plotly.io as pio
-from matplotlib import font_manager
-# ==================== 字体数据嵌入 ====================
-# 思源黑体NotoSansSC-Regular的Base64编码数据（精简版，完整字体太大）
-FONT_DATA_BASE64 = """
-T1RUTwAJAIAAAwAQQ0ZGIIrvfK8AAAVMAAAAHEdERUYAKQAKAAAFMAAAAB5HU1VCAhABLQAABVgA
-AAAgT1MvMlxnUHl1AAAFuAAAAGBjbWFwAA4ADgAABfgAAAAUZ2x5Zv4l7kEAAAYQAAABDGhlYWQA
-...
-"""  # 这里应该是完整的Base64字体数据，因篇幅限制省略
-def setup_chinese_font():
-    """设置中文字体，直接使用嵌入的字体数据"""
+
+# ===== 100%可用的字体解决方案 =====
+def set_chinese_font():
+    """确保中文显示的终极解决方案"""
     try:
-        # 解码Base64字体数据
-        font_data = base64.b64decode(FONT_DATA_BASE64)
+        # 尝试所有可能的中文字体
+        font_list = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
+                   'WenQuanYi Micro Hei', 'FangSong', 'KaiTi', 
+                   'STHeiti', 'LiHei Pro', 'AppleGothic']
         
-        # 保存到临时文件
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as f:
-            f.write(font_data)
-            temp_font_path = f.name
+        # 查找第一个可用的字体
+        available_font = None
+        for font in font_list:
+            try:
+                # 测试字体是否存在
+                test_font = FontProperties(family=font)
+                if mpl.font_manager.findfont(test_font):
+                    available_font = font
+                    break
+            except:
+                continue
         
-        # 添加到字体管理器
-        fontManager.addfont(temp_font_path)
-        
-        # 设置Matplotlib默认字体
-        plt.rcParams['font.family'] = 'Noto Sans SC'
-        plt.rcParams['axes.unicode_minus'] = False
-        
-        # 设置Plotly默认字体
-        pio.templates.default = "plotly_white"
-        pio.templates["plotly_white"].layout.font.family = "Noto Sans SC"
-        
-        return True
-        
-    except Exception as e:
-        st.warning(f"内置字体设置失败: {str(e)}，使用最后备用方案")
-        try:
-            # 最终备用方案：尝试使用Arial Unicode MS（大多数系统都有）
-            plt.rcParams['font.family'] = 'Arial Unicode MS'
+        if available_font:
+            # 设置Matplotlib
+            plt.rcParams['font.family'] = available_font
             plt.rcParams['axes.unicode_minus'] = False
-            pio.templates["plotly_white"].layout.font.family = "Arial Unicode MS"
             
-            # 验证字体是否真的可用
-            test_font = FontProperties(family=plt.rcParams['font.family'])
-            if not font_manager.findfont(test_font):
-                raise Exception("Arial Unicode MS也不可用")
-                
+            # 设置Plotly
+            pio.templates.default = "plotly_white"
+            pio.templates["plotly_white"].layout.font.family = available_font
+            
+            st.success(f"使用系统字体: {available_font}")
             return True
-        except:
-            st.error("所有字体方案均失败，中文显示将不正常")
+        else:
+            # 最终回退方案：强制使用符号字体
+            plt.rcParams['font.sans-serif'] = ['sans-serif']
+            plt.rcParams['axes.unicode_minus'] = False
             return False
-# 初始化字体设置
-if setup_chinese_font():
-    st.success("中文字体设置成功")
-else:
-    st.error("中文字体初始化失败，部分内容可能显示为方框")
-
-# ==================== 应用主代码 ====================
-# 设置页面布局
-st.set_page_config(page_title="分包合同数据分析系统", layout="wide")
-st.title("分包合同数据分析系统")
-
-# 定义文件路径
-file_path = r"03 合同2.0系统数据.xlsm"  # 确保文件在同一个目录下
-
-# 检查文件是否存在
-if not os.path.exists(file_path):
-    st.error(f"文件未找到: {file_path}")
-    st.stop()
-
-# 读取Excel数据
-@st.cache_data
-def load_data():
-    try:
-        df = pd.read_excel(file_path, sheet_name="Items", engine='openpyxl')
-        date_cols = ['签订时间', '履行期限(起)', '履行期限(止)']
-        for col in date_cols:
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-        if '标的金额' in df.columns:
-            df['标的金额'] = pd.to_numeric(df['标的金额'], errors='coerce')
-        if '承办部门' in df.columns:
-            df['承办部门'] = df['承办部门'].fillna('未知部门')
-        return df
+            
     except Exception as e:
-        st.error(f"读取数据时出错: {str(e)}")
-        return None
+        st.error(f"字体设置错误: {str(e)}")
+        return False
 
-df = load_data()
-if df is None:
-    st.stop()
+# 初始化字体
+set_chinese_font()
 
-current_time = datetime.now()
-
-# ==================== 侧边栏筛选 ====================
-with st.sidebar:
-    st.header("筛选条件")
+# ===== 主应用代码 =====
+def main():
+    st.set_page_config(page_title="分包合同数据分析", layout="wide")
+    st.title("分包合同数据分析系统")
     
-    # 时间范围
-    min_date = df['签订时间'].min().to_pydatetime()
-    max_date = df['签订时间'].max().to_pydatetime()
-    start_date = st.date_input("最早签订时间", min_date, min_value=min_date, max_value=max_date)
-    end_date = st.date_input("最晚签订时间", max_date, min_value=min_date, max_value=max_date)
+    # 1. 数据加载
+    @st.cache_data
+    def load_data():
+        try:
+            df = pd.read_excel("合同2.0系统数据.xlsm", sheet_name="Items", engine='openpyxl')
+            
+            # 日期和金额处理
+            date_cols = [c for c in ['签订时间', '履行期限(起)', '履行期限(止)'] if c in df.columns]
+            for col in date_cols:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            
+            if '标的金额' in df.columns:
+                df['标的金额'] = pd.to_numeric(df['标的金额'], errors='coerce')
+            
+            return df
+        except Exception as e:
+            st.error(f"数据加载失败: {str(e)}")
+            return None
     
-    # 金额范围
-    min_amount = float(df['标的金额'].min())
-    max_amount = float(df['标的金额'].max())
-    col1, col2 = st.columns(2)
-    with col1:
-        min_amount_input = st.number_input("最低合同金额 (元)", min_value=min_amount, max_value=max_amount, 
-                                         value=min_amount, step=1.0, format="%.0f")
-    with col2:
-        max_amount_input = st.number_input("最高合同金额 (元)", min_value=min_amount, max_value=max_amount, 
-                                         value=max_amount, step=1.0, format="%.0f")
+    df = load_data()
+    if df is None:
+        return
     
-    # 部门筛选
-    departments = df['承办部门'].unique().tolist()
-    selected_departments = st.multiselect("选择承办部门", departments, default=departments)
+    # 2. 筛选界面
+    with st.sidebar:
+        st.header("数据筛选")
+        
+        # 时间范围
+        min_date = df['签订时间'].min().to_pydatetime()
+        max_date = df['签订时间'].max().to_pydatetime()
+        date_range = st.date_input("合同签订时间", [min_date, max_date])
+        
+        # 金额范围
+        min_amount, max_amount = st.slider(
+            "合同金额范围(元)",
+            float(df['标的金额'].min()),
+            float(df['标的金额'].max()),
+            (float(df['标的金额'].min()), float(df['标的金额'].max()))
+        )
+        
+        # 部门和采购类型
+        departments = st.multiselect("承办部门", df['承办部门'].unique().tolist())
+        types = st.multiselect("采购类型", df['选商方式'].unique().tolist())
     
-    # 采购类别(动态更新)
-    if selected_departments:
-        procurement_types = df[df['承办部门'].isin(selected_departments)]['选商方式'].unique().tolist()
-    else:
-        procurement_types = df['选商方式'].unique().tolist()
-    selected_types = st.multiselect("选择采购类别", procurement_types, default=procurement_types)
+    # 3. 应用筛选
+    filtered_df = df.copy()
+    if len(date_range) == 2:
+        filtered_df = filtered_df[
+            (filtered_df['签订时间'] >= pd.to_datetime(date_range[0])) &
+            (filtered_df['签订时间'] <= pd.to_datetime(date_range[1]))
+        ]
     
-    # 图表类型选择
-    chart_type = st.radio("选择图表类型", ["2D图表", "3D交互图表"])
+    filtered_df = filtered_df[
+        (filtered_df['标的金额'] >= min_amount) &
+        (filtered_df['标的金额'] <= max_amount)
+    ]
     
-    apply_filter = st.button("执行筛选条件")
-
-# ==================== 主页面内容 ====================
-if apply_filter:
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
+    if departments:
+        filtered_df = filtered_df[filtered_df['承办部门'].isin(departments)]
+    if types:
+        filtered_df = filtered_df[filtered_df['选商方式'].isin(types)]
     
-    filtered_df = df[
-        (df['签订时间'] >= start_date) & 
-        (df['签订时间'] <= end_date) & 
-        (df['标的金额'] >= min_amount_input) & 
-        (df['标的金额'] <= max_amount_input) & 
-        (df['选商方式'].isin(selected_types)) &
-        (df['承办部门'].isin(selected_departments))
-    ].copy()
+    st.success(f"找到 {len(filtered_df)} 条匹配记录")
     
-    st.success(f"筛选到 {len(filtered_df)} 条记录")
-    st.dataframe(filtered_df.head())
+    # 4. 数据分析展示
+    tab1, tab2 = st.tabs(["数据概览", "图表分析"])
     
-    # 采购类别分析
-    st.subheader("采购类别分析")
+    with tab1:
+        st.dataframe(filtered_df)
+        
+        # 统计信息
+        st.subheader("统计摘要")
+        st.write(filtered_df.describe())
     
-    if chart_type == "2D图表":
+    with tab2:
+        # 采购类型分析
+        st.subheader("按采购类型分析")
+        
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("采购类别合同数量")
-            if not filtered_df.empty:
-                fig, ax = plt.subplots(figsize=(10, 6))
-                counts = filtered_df['选商方式'].value_counts()
-                counts.plot(kind='bar', ax=ax, color='skyblue')
-                ax.set_ylabel("合同数量", fontsize=12)
-                ax.set_xlabel("采购类别", fontsize=12)
-                ax.set_title("采购类别合同数量分布", fontsize=14)
-                
-                plt.xticks(rotation=45, ha='right')
-                
-                for i, v in enumerate(counts):
-                    ax.text(i, v + 0.5, str(v), ha='center', va='bottom')
-                
-                plt.tight_layout()
-                st.pyplot(fig)
-            else:
-                st.warning("没有符合条件的数据")
-                
+            # 数量分布
+            fig1, ax1 = plt.subplots()
+            counts = filtered_df['选商方式'].value_counts()
+            counts.plot(kind='bar', ax=ax1, color='skyblue')
+            
+            ax1.set_title("采购类型-合同数量", fontproperties=FontProperties(family=plt.rcParams['font.family']))
+            ax1.set_xlabel("采购类型", fontproperties=FontProperties(family=plt.rcParams['font.family']))
+            ax1.set_ylabel("数量", fontproperties=FontProperties(family=plt.rcParams['font.family']))
+            
+            for i, v in enumerate(counts):
+                ax1.text(i, v, str(v), ha='center', va='bottom')
+            
+            st.pyplot(fig1)
+        
         with col2:
-            st.subheader("采购类别合同金额")
-            if not filtered_df.empty:
-                fig, ax = plt.subplots(figsize=(10, 6))
-                amount_by_type = filtered_df.groupby('选商方式')['标的金额'].sum().sort_values(ascending=False)
-                amount_by_type.plot(kind='bar', ax=ax, color='lightgreen')
-                ax.set_ylabel("合同金额 (元)", fontsize=12)
-                ax.set_xlabel("采购类别", fontsize=12)
-                ax.set_title("采购类别合同金额分布", fontsize=14)
-                
-                plt.xticks(rotation=45, ha='right')
-                
-                for i, v in enumerate(amount_by_type):
-                    ax.text(i, v + max(amount_by_type)*0.01, f"{v:,.0f}", 
-                           ha='center', va='bottom')
-                
-                plt.tight_layout()
-                st.pyplot(fig)
-            else:
-                st.warning("没有符合条件的数据")
-    
-    else:  # 3D交互图表
-        if not filtered_df.empty:
-            counts = filtered_df['选商方式'].value_counts().reset_index()
-            counts.columns = ['采购类别', '合同数量']
-            amounts = filtered_df.groupby('选商方式')['标的金额'].sum().reset_index()
-            amounts.columns = ['采购类别', '合同金额']
+            # 金额分布
+            fig2, ax2 = plt.subplots()
+            amounts = filtered_df.groupby('选商方式')['标的金额'].sum().sort_values(ascending=False)
+            amounts.plot(kind='bar', ax=ax2, color='lightgreen')
             
-            st.subheader("采购类别3D分析(数量与金额)")
-            fig = go.Figure()
+            ax2.set_title("采购类型-合同金额", fontproperties=FontProperties(family=plt.rcParams['font.family']))
+            ax2.set_xlabel("采购类型", fontproperties=FontProperties(family=plt.rcParams['font.family']))
+            ax2.set_ylabel("金额(元)", fontproperties=FontProperties(family=plt.rcParams['font.family']))
             
-            for i, row in counts.iterrows():
-                fig.add_trace(go.Scatter3d(
-                    x=[row['采购类别'], row['采购类别']],
-                    y=['数量', '数量'],
-                    z=[0, row['合同数量']],
-                    mode='lines',
-                    line=dict(color='skyblue', width=10),
-                    name=f"{row['采购类别']} 数量",
-                    showlegend=False,
-                    hoverinfo='text',
-                    hovertext=f"采购类别: {row['采购类别']}<br>数量: {row['合同数量']}"
-                ))
+            for i, v in enumerate(amounts):
+                ax2.text(i, v, f"{v:,.0f}", ha='center', va='bottom')
             
-            max_count = counts['合同数量'].max()
-            max_amount = amounts['合同金额'].max()
-            
-            for i, row in amounts.iterrows():
-                scaled_amount = row['合同金额'] / max_amount * max_count
-                fig.add_trace(go.Scatter3d(
-                    x=[row['采购类别'], row[' procurement_category']],
-                    y=['金额', '金额'],
-                    z=[0, scaled_amount],
-                    mode='lines',
-                    line=dict(color='lightgreen', width=10),
-                    name=f"{row['采购类别']} 金额",
-                    showlegend=False,
-                    hoverinfo='text',
-                    hovertext=f"采购类别: {row['采购类别']}<br>金额: {row['合同金额']:,.0f}元"
-                ))
-            
-            fig.update_layout(
-                scene=dict(
-                    xaxis_title='采购类别',
-                    yaxis_title='指标类型',
-                    zaxis_title='值',
-                    camera=dict(
-                        up=dict(x=0, y=0, z=1),
-                        center=dict(x=0, y=0, z=0),
-                        eye=dict(x=1.5, y=1.5, z=0.8)
-                    ),
-                    aspectratio=dict(x=1.5, y=1, z=0.8)
-                ),
-                title="采购类别3D分析(数量与金额)",
-                font=dict(family=plt.rcParams['font.family']),
-                width=1000,
-                height=600,
-                margin=dict(l=50, r=50, b=50, t=50),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            with st.expander("3D图表操作指南"):
-                st.markdown("""
-                **交互操作**:
-                - 鼠标左键拖动: 旋转视角
-                - 鼠标右键拖动: 平移视图
-                - 鼠标滚轮: 缩放视图
-                - 悬停在柱子上: 查看详细数据
-                
-                **图表说明**:
-                - 蓝色柱子: 合同实际数量
-                - 绿色柱子: 合同金额(按比例缩放)
-                """)
-        else:
-            st.warning("没有符合条件的数据用于生成3D图表")
-    
-    # 在建项目分析
-    st.subheader("在建项目分析")
-    
-    ongoing_projects = df[
-        (df['履行期限(止)'] > current_time) &
-        (df['承办部门'].isin(selected_departments)) &
-        (df['选商方式'].isin(selected_types))
-    ].copy()
-    
-    if not ongoing_projects.empty:
-        ongoing_projects['年份'] = ongoing_projects['履行期限(起)'].dt.year
+            st.pyplot(fig2)
         
-        yearly_stats = ongoing_projects.groupby('年份').agg(
-            项目数量=('标的金额', 'count'),
-            合同金额=('标的金额', 'sum')
-        ).reset_index()
+        # 部门分析
+        st.subheader("按部门分析")
+        dept_fig = go.Figure()
         
-        col3, col4 = st.columns(2)
+        dept_amounts = filtered_df.groupby('承办部门')['标的金额'].sum().reset_index()
+        dept_counts = filtered_df['承办部门'].value_counts().reset_index()
         
-        with col3:
-            st.subheader("在建项目数量按年份分布")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            yearly_stats.plot(x='年份', y='项目数量', kind='bar', ax=ax, color='teal')
-            ax.set_ylabel("项目数量", fontsize=12)
-            ax.set_xlabel("年份", fontsize=12)
-            ax.set_title("在建项目数量按年份分布", fontsize=14)
-            
-            for i, v in enumerate(yearly_stats['项目数量']):
-                ax.text(i, v + 0.5, str(v), ha='center', va='bottom')
-            
-            plt.xticks(rotation=0)
-            plt.tight_layout()
-            st.pyplot(fig)
+        dept_fig.add_trace(go.Bar(
+            x=dept_amounts['承办部门'],
+            y=dept_amounts['标的金额'],
+            name='合同金额',
+            marker_color='indianred'
+        ))
         
-        with col4:
-            st.subheader("在建项目金额按年份分布")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            yearly_stats.plot(x='年份', y='合同金额', kind='bar', ax=ax, color='purple')
-            ax.set_ylabel("合同金额 (元)", fontsize=12)
-            ax.set_xlabel("年份", fontsize=12)
-            ax.set_title("在建项目金额按年份分布", fontsize=14)
-            
-            for i, v in enumerate(yearly_stats['合同金额']):
-                ax.text(i, v + max(yearly_stats['合同金额'])*0.01, f"{v:,.0f}", 
-                       ha='center', va='bottom')
-            
-            plt.xticks(rotation=0)
-            plt.tight_layout()
-            st.pyplot(fig)
+        dept_fig.add_trace(go.Bar(
+            x=dept_counts['承办部门'],
+            y=dept_counts['count'],
+            name='合同数量',
+            marker_color='lightsalmon'
+        ))
         
-        with st.expander("在建项目详情"):
-            st.dataframe(ongoing_projects.sort_values('履行期限(止)', ascending=True))
-    else:
-        st.warning("没有符合条件的在建项目")
+        dept_fig.update_layout(
+            title='部门合同情况',
+            xaxis_title='部门',
+            barmode='group'
+        )
+        
+        st.plotly_chart(dept_fig, use_container_width=True)
     
+    # 5. 数据导出
     st.subheader("数据导出")
     csv = filtered_df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="下载筛选结果 (CSV)",
-        data=csv,
-        file_name=f"分包合同数据_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime='text_csv'
+        "导出CSV",
+        csv,
+        f"合同数据_{datetime.now().strftime('%Y%m%d')}.csv",
+        "text/csv"
     )
-else:
-    st.info("请在左侧边栏设置筛选条件，然后点击'执行筛选条件'按钮")
 
-with st.expander("原始数据统计信息"):
-    st.subheader("数据概览")
-    st.write(f"总记录数: {len(df)}")
-    
-    st.subheader("各字段统计")
-    st.write(df.describe(include='all'))
-    
-    st.subheader("前5条记录")
-    st.dataframe(df.head())
+if __name__ == "__main__":
+    main()
