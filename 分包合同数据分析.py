@@ -6,17 +6,55 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 import matplotlib as mpl
-from matplotlib.font_manager import FontProperties
+from matplotlib.font_manager import FontProperties, fontManager
+import requests
 import tempfile
 import base64
 import plotly.io as pio
+from hashlib import sha256
 
+# ==================== 密码保护系统 ====================
+def check_password():
+    """密码验证系统"""
+    # 正确的密码"yuelifeng@2018"的SHA256哈希
+    PASSWORD_HASH = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
+    
+    def password_entered():
+        """检查输入的密码是否正确"""
+        if sha256(st.session_state["password"].encode()).hexdigest() == PASSWORD_HASH:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input(
+            "请输入访问密码（密码：yuelifeng@2018）", 
+            type="password",
+            on_change=password_entered,
+            key="password"
+        )
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input(
+            "密码错误，请重试", 
+            type="password",
+            on_change=password_entered,
+            key="password"
+        )
+        st.error("😕 密码不正确")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop()
 
 # ==================== 字体终极解决方案 ====================
 def setup_chinese_font():
     """100%可靠的中文字体解决方案"""
     try:
-        # 使用系统字体
+        # 方法1：使用系统字体
         font_list = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
                     'WenQuanYi Micro Hei', 'STHeiti', 'PingFang SC']
         
@@ -24,7 +62,7 @@ def setup_chinese_font():
         for font in font_list:
             try:
                 fp = FontProperties(family=font)
-                if mpl.font_manager.findfont(fp):
+                if fontManager.findfont(fp):
                     available_font = font
                     break
             except:
@@ -217,8 +255,8 @@ with tab2:
         type_amounts = filtered_df.groupby('选商方式')['标的金额(万元)'].sum().reset_index()
         type_counts = filtered_df['选商方式'].value_counts().reset_index()
         
-        # 创建3D图表 - 修正了这里的语法错误
-        fig3d = go.Figure()  # 添加了缺少的括号
+        # 创建3D图表
+        fig3d = go.Figure()
         
         # 添加数量柱
         fig3d.add_trace(go.Bar3d(
