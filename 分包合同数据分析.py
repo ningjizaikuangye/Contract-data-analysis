@@ -10,6 +10,33 @@ import matplotlib
 from matplotlib.patches import Patch
 import tempfile
 
+
+# 在字体设置部分添加这个终极方案
+def ultimate_chinese_font_solution():
+    """终极中文字体解决方案"""
+    try:
+        # 清除字体缓存
+        font_manager._rebuild()
+        
+        # 设置matplotlib使用系统默认字体
+        matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+        
+        # 重新配置中文字体
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']
+        plt.rcParams['axes.unicode_minus'] = False
+        
+        # 强制设置字体族
+        plt.rcParams['font.family'] = 'sans-serif'
+        
+        return True
+    except Exception as e:
+        st.sidebar.error(f"终极字体方案失败: {str(e)}")
+        return False
+
+# 在适当位置调用
+if not matplotlib_font_success:
+    ultimate_success = ultimate_chinese_font_solution()
+
 # 专门针对matplotlib的中文字体解决方案
 def setup_matplotlib_chinese_font():
     """专门为matplotlib设置中文字体"""
