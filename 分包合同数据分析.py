@@ -347,7 +347,7 @@ if apply_filter:
     
     # 在建项目分析 - 仅在2D图表中显示
     if chart_type == "2D图表":
-        st.subheader("在建项目分析")
+        st.subheader("在建项目分析（签订时间2019年3月22日至今）")
         
         # 筛选在建项目（履行期限(止) > 当前时间）
         ongoing_projects = df[
