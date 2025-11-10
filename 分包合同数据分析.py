@@ -11,44 +11,6 @@ import requests
 import tempfile
 import base64
 import plotly.io as pio
-from hashlib import sha256
-
-# ==================== 密码保护系统 ====================
-def check_password():
-    """密码验证系统"""
-    # 正确的密码"yuelifeng@2018"的SHA256哈希
-    PASSWORD_HASH = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
-    
-    def password_entered():
-        """检查输入的密码是否正确"""
-        if sha256(st.session_state["password"].encode()).hexdigest() == PASSWORD_HASH:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.text_input(
-            "请输入访问密码（密码：yuelifeng@2018）", 
-            type="password",
-            on_change=password_entered,
-            key="password"
-        )
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input(
-            "密码错误，请重试", 
-            type="password",
-            on_change=password_entered,
-            key="password"
-        )
-        st.error("😕 密码不正确")
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()
 
 # ==================== 字体终极解决方案 ====================
 def setup_chinese_font():
@@ -76,15 +38,21 @@ def setup_chinese_font():
             # 设置Plotly
             pio.templates.default = "plotly_white"
             pio.templates["plotly_white"].layout.font.family = available_font
+            st.success(f"已使用系统字体: {available_font}")
             return True
         else:
             raise Exception("未找到系统字体")
     except Exception as e:
-        st.error(f"字体设置失败: {str(e)}")
+        st.warning(f"字体设置警告: {str(e)}")
+        # 回退方案
+        plt.rcParams['font.family'] = 'sans-serif'
+        plt.rcParams['axes.unicode_minus'] = False
+        pio.templates.default = "plotly_white"
         return False
 
+# 初始化字体设置
 if not setup_chinese_font():
-    st.error("无法初始化中文字体，显示可能不正常")
+    st.error("⚠️ 字体初始化不完全，中文显示可能不正常")
 
 # ==================== 应用主代码 ====================
 st.set_page_config(
@@ -186,7 +154,7 @@ if procurement_types:
 st.success(f"✅ 筛选到 {len(filtered_df)} 条记录")
 
 # 获取当前字体设置
-current_font = plt.rcParams['font.family'][0] if isinstance(plt.rcParams['font.family'], list) else plt.rcParams['font.family']
+current_font = plt.rcParams['font.family'][0] if isinstance plt.rcParams['font.family'], list) else plt.rcParams['font.family']
 font_props = FontProperties(family=current_font)
 
 # 数据分析展示
@@ -306,8 +274,3 @@ st.sidebar.download_button(
     file_name=f"合同数据_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
     mime='text/csv'
 )
-
-# 锁定系统按钮
-if st.sidebar.button("🔒 锁定系统"):
-    st.session_state["password_correct"] = False
-    st.rerun()
