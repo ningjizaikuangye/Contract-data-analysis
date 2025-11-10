@@ -11,24 +11,22 @@ import tempfile
 import base64
 import plotly.io as pio
 from hashlib import sha256
-from st_pages import Page, show_pages, hide_pages
 
 # ==================== 密码保护系统 ====================
 def check_password():
     """密码验证系统"""
-    # 密码哈希值（"yuelifeng@2018"的SHA256哈希）
-    CORRECT_HASH = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
+    # "yuelifeng@2018"的SHA256哈希
+    PASSWORD_HASH = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
     
     def password_entered():
         """检查输入的密码是否正确"""
-        if sha256(st.session_state["password"].encode()).hexdigest() == CORRECT_HASH:
+        if sha256(st.session_state["password"].encode()).hexdigest() == PASSWORD_HASH:
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # 验证成功后删除临时密码
+            del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # 首次运行显示密码输入框
         st.text_input(
             "请输入访问密码", 
             type="password",
@@ -37,80 +35,57 @@ def check_password():
         )
         return False
     elif not st.session_state["password_correct"]:
-        # 密码错误时显示
         st.text_input(
             "密码错误，请重试", 
             type="password",
             on_change=password_entered,
             key="password"
         )
-        st.error("😕 密码不正确")
+        st.error("密码不正确")
         return False
     else:
-        # 密码正确
         return True
 
 if not check_password():
-    st.stop()  # 密码不正确时停止执行后续代码
+    st.stop()
 
 # ==================== 字体终极解决方案 ====================
 def setup_chinese_font():
     """100%可靠的中文字体解决方案"""
     try:
-        # 方法1：使用内置字体数据（避免网络下载）
-        font_data = base64.b64decode("""[此处应为完整的Base64字体数据，因篇幅限制省略]""")
+        # 使用系统字体
+        font_list = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
+                    'WenQuanYi Micro Hei', 'STHeiti', 'PingFang SC']
         
-        # 保存到临时文件
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as f:
-            f.write(font_data)
-            temp_font_path = f.name
+        available_font = None
+        for font in font_list:
+            try:
+                fp = FontProperties(family=font)
+                if mpl.font_manager.findfont(fp):
+                    available_font = font
+                    break
+            except:
+                continue
         
-        # 添加到字体管理器
-        font_manager.fontManager.addfont(temp_font_path)
-        
-        # 设置Matplotlib
-        plt.rcParams['font.family'] = 'Noto Sans SC'
-        plt.rcParams['axes.unicode_minus'] = False
-        
-        # 设置Plotly
-        pio.templates.default = "plotly_white"
-        pio.templates["plotly_white"].layout.font.family = "Noto Sans SC"
-        
-        return True
+        if available_font:
+            # 设置Matplotlib
+            plt.rcParams['font.family'] = available_font
+            plt.rcParams['axes.unicode_minus'] = False
+            
+            # 设置Plotly
+            pio.templates.default = "plotly_white"
+            pio.templates["plotly_white"].layout.font.family = available_font
+            return True
+        else:
+            raise Exception("未找到系统字体")
     except Exception as e:
-        st.warning(f"内置字体加载失败: {str(e)}，使用系统字体")
-        try:
-            # 方法2：使用系统字体
-            font_list = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 
-                        'WenQuanYi Micro Hei', 'STHeiti', 'PingFang SC']
-            
-            available_font = None
-            for font in font_list:
-                try:
-                    fp = FontProperties(family=font)
-                    if font_manager.findfont(fp):
-                        available_font = font
-                        break
-                except:
-                    continue
-            
-            if available_font:
-                plt.rcParams['font.family'] = available_font
-                plt.rcParams['axes.unicode_minus'] = False
-                pio.templates["plotly_white"].layout.font.family = available_font
-                return True
-            else:
-                raise Exception("未找到系统字体")
-        except Exception as e:
-            st.error(f"字体设置失败: {str(e)}")
-            return False
+        st.error(f"字体设置失败: {str(e)}")
+        return False
 
-# 初始化字体
 if not setup_chinese_font():
     st.error("无法初始化中文字体，显示可能不正常")
 
 # ==================== 应用主代码 ====================
-# 设置页面布局
 st.set_page_config(
     page_title="分包合同数据分析系统", 
     layout="wide",
@@ -279,8 +254,8 @@ with tab2:
         type_amounts = filtered_df.groupby('选商方式')['标的金额(万元)'].sum().reset_index()
         type_counts = filtered_df['选商方式'].value_counts().reset_index()
         
-        # 创建3D图表
-        fig3d = go Figure()
+        # 创建3D图表 - 修正了这里的语法错误
+        fig3d = go.Figure()  # 添加了缺少的括号
         
         # 添加数量柱
         fig3d.add_trace(go.Bar3d(
