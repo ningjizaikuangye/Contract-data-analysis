@@ -11,6 +11,48 @@ import requests
 
 # 设置页面布局
 st.set_page_config(page_title="分包合同数据分析", layout="wide")
+
+# 密码验证函数
+def check_password():
+    """密码验证"""
+    def password_entered():
+        """检查输入的密码是否正确"""
+        if st.session_state["password"] == "yuelifeng@2018":
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # 删除密码，不存储
+        else:
+            st.session_state["password_correct"] = False
+    
+    # 首次运行，初始化session_state
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+    
+    # 如果密码正确，返回True
+    if st.session_state["password_correct"]:
+        return True
+    
+    # 否则显示密码输入框
+    st.title("分包合同数据分析系统")
+    st.markdown("---")
+    st.subheader("🔒 系统访问认证")
+    password = st.text_input(
+        "请输入访问密码:", 
+        type="password", 
+        key="password",
+        on_change=password_entered
+    )
+    
+    if "password" in st.session_state and not st.session_state["password_correct"]:
+        st.error("密码错误，请重新输入")
+    
+    st.info("如需访问权限，请联系系统管理员")
+    return False
+
+# 检查密码
+if not check_password():
+    st.stop()
+
+# 密码验证通过，显示主应用
 st.title("分包合同数据分析系统")
 
 # 字体解决方案
@@ -29,7 +71,7 @@ def setup_chinese_font():
 font_setup_success = setup_chinese_font()
 
 # 定义文件路径
-file_path = r"03 合同2.0系统数据.xlsm"
+file_path = r"\\sjzx\公司数据中心\经营管理部（预结算中心）\03_分包采购及合同管理\04 台账报表\01 分包合同数据-台账-分析-报表\03 合同2.0系统数据.xlsm"
 
 # 检查文件是否存在
 if not os.path.exists(file_path):
